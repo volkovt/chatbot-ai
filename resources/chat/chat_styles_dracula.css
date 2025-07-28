@@ -1,0 +1,202 @@
+:root {
+    --font-family: "Fira Code", monospace, cursive;
+    --font-weight: bold;
+    --font-size: 18px;
+    --background-color: #262626;
+    --text-color: #fff;
+    --header-bg-color: #4A4C4F;
+    --header-bg-secondary-color: #282436;
+    --bg-hilight-color: #3B3B3B;
+    --highlight-color: #ff9900;
+    --secondary-bg-color: #262626;
+    --border-color: #6272a4;
+    --hover-color: #ff7760;
+    --pressed-color: #ff4460;
+    --text-code-color: #bbf1f1;
+}
+
+html, body {
+    font-family: var(--font-family);
+    font-weight: var(--font-weight);
+    font-size: var(--font-size);
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+}
+
+#scroll-to-bottom-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 26px;
+    background-color: var(--highlight-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    display: none;
+}
+
+.message-header, .file-button {
+    background-color: var(--header-bg-color);
+    color: var(--highlight-color);
+    font-weight: var(--font-weight);
+}
+
+.message-header {
+    background-color: var(--header-bg-secondary-color);
+    color: var(--highlight-color);
+    padding: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    box-shadow: 0 4px 7px rgba(0, 0, 0, 0.2), 0 -2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.message-content, .codehilite .linenos {
+    padding-left: 16px;
+}
+
+.chat-container, .code-line, #messages {
+    color: var(--text-color);
+}
+
+.codehilite pre {
+    word-wrap: break-word;
+    white-space: normal;
+    max-width: 100%;
+}
+
+code {
+    color: var(--highlight-color);
+}
+
+.code-block {
+    color: var(--text-code-color);
+}
+
+.container-code-block {
+    padding: 10px;
+    box-shadow: 0 4px 7px rgba(0, 0, 0, 0.7), 0 -2px 5px rgba(0, 0, 0, 0.7);
+    background-color: var(--bg-hilight-color);
+    width: 90%;
+    padding-left: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.line-wrapper {
+    display: flex;
+    background-color: transparent;
+}
+
+.line-number {
+    color: var(--border-color);
+    padding-right: 10px;
+    text-align: right;
+    font-weight: var(--font-weight);
+}
+
+.codehilite-main-div {
+    border: 2px solid var(--highlight-color);
+    font-size: 22px;
+    border-radius: 5px;
+    background: var(--header-bg-secondary-color);
+    position: relative;
+    overflow-x: auto;
+    font-size: var(--font-size);
+}
+
+.codehilite .code {
+    -webkit-user-select: text;
+    user-select: text;
+    padding-left: 16px;
+}
+
+.codehilite .code div pre {
+    max-width: 100%;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.copy-button {
+    background-color: transparent;
+    border: none;
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.copy-button:hover {
+    color: var(--hover-color);
+}
+
+.copy-button i {
+    font-size: 22px;
+}
+
+.file-content {
+    margin: 16px 10px;
+    padding: 15px 15px;
+    background: var(--bg-hilight-color);
+    max-width: 100%;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.file-button {
+    background: transparent;
+    margin: 10px 0px;
+    margin-right: 10px;
+    border-color: var(--highlight-color);
+}
+
+.action-btn {
+    background-color: transparent;
+    border: none;
+    margin: 0;
+    padding: 9px;
+    color: ff9906;
+}
+
+.action-btn:hover {
+    color: var(--hover-color);
+    cursor: pointer;
+}
+
+.action-btn:active {
+    color: var(--pressed-color);
+    cursor: pointer;
+}
+
+#search-bar {
+    padding: 5px;
+    text-align: center;
+    background-color: var(--header-bg-secondary-color);
+}
+
+#search-input {
+    width: 100%;
+    padding: 6px;
+    border-radius: 4px;
+    border: none;
+    background-color: var(--secondary-bg-color);
+    color: var(--text-color);
+}
+
+.highlight {
+    background-color: var(--bg-hilight-color);
+    color: var(--highlight-color);
+    font-weight: bold;
+}

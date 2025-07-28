@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/chat/chat_styles_dracula.css</file>
+        <file>resources/chat/chat_scripts.js</file>
+    </qresource>
+</RCC>

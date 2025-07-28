@@ -1,0 +1,130 @@
+/* Estilo Global */
+QWidget {
+background-color: @bgdark;
+color: @text;
+font-family: Arial, sans-serif;
+font-size: 12pt;
+}
+
+/* Títulos e Labels */
+QLabel {
+color: @accent;
+font-weight: bold;
+}
+
+/* Botões */
+QPushButton {
+background-color: @bg;
+color: @accent;
+border: none;
+padding: 5px 10px;
+border-radius: 5px;
+}
+QPushButton:hover {
+background-color: @bglight;
+border-color: @accentlight;
+color: @accentlight;
+}
+QPushButton:pressed {
+background-color: @hover;
+border-color: @accentdark;
+color: @accentdark;
+}
+
+/* Botões de Ícone */
+QToolButton {
+background: transparent;
+color: @accent;
+border: none;
+}
+QToolButton:hover {
+color: @accentlight;
+}
+QToolButton:pressed {
+color: @accentdark;
+}
+
+/* Área de Chat */
+QTextEdit {
+background-color: @bg;
+color: @text;
+border: 1px solid @hover;
+border-radius: 5px;
+padding: 5px;
+}
+
+/* Linhas de Entrada */
+QLineEdit {
+background-color: @bg;
+color: @text;
+border: 1px solid @hover;
+border-radius: 5px;
+padding: 5px;
+}
+QLineEdit:focus {
+border: 1px solid @accent;
+}
+
+/* Abas */
+QTabBar::tab {
+background: @bg;
+padding: 8px;
+margin: 2px;
+border-radius: 3px;
+}
+QTabBar::tab:selected {
+background: @bglight;
+color: @accent;
+}
+
+/* Painel de Arquivos */
+QListWidget {
+background-color: @bg;
+border: 1px solid @border;
+border-radius: 5px;
+}
+QListWidget::item {
+padding: 4px;
+color: @text;
+}
+QListWidget::item:selected {
+background-color: @accentlight;
+color: @text;
+}
+/* Item desativado */
+QListWidget::item[enabled="false"] {
+color: @bgdark;
+}
+
+QTableWidget QTableCornerButton::section,
+QTableWidget::item {
+    color: @text;
+}
+QTableWidget {
+    background-color: @bglight;
+    alternate-background-color: @bgdark;
+}
+
+QHeaderView::section {
+    background-color: @bgdark;
+    color: @text;
+    font-weight: bold;
+    padding: 4px;
+    border: 1px solid @border;
+}
+
+QHeaderView::section:hover {
+    background-color: @hover;
+}
+
+#advanced_selection_item_layout {
+    background-color: @bg;
+    border: 1px solid @border;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+#advanced_selection_item_label {
+    color: @text;
+    font-weight: bold;
+}

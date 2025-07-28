@@ -1,0 +1,16 @@
+environments/environments.py
+/build
+*__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info
+*.whl
+/dist
+*.tar.gz
+.DS_Store
+*.log
+.IDEA
+*.json
