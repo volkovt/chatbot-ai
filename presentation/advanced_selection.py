@@ -304,3 +304,22 @@ class AdvancedSelectionDialog(QDialog):
             self.footer_layout.addLayout(widget)
         else:
             self.footer_layout.insertWidget(self.header_layout.count() - 1, widget)
+
+    def select_items(self, idx: int, values: list, by: str = None):
+        """
+        Seleciona programaticamente itens na lista idx.
+        `values` é lista de valores a comparar.
+        `by` pode ser 'name', 'description' ou outra chave de `item`.
+        """
+        key = by or self.name_key
+        lw, _, _ = self.list_widgets[idx]
+        for i in range(lw.count()):
+            w = lw.itemWidget(lw.item(i))
+            ctrl = w.findChild((QCheckBox, QRadioButton, QLabel))
+            data_item = ctrl.property('item')
+            val = data_item.get(key) if isinstance(data_item, dict) else getattr(data_item, key, None)
+            if val in values:
+                if isinstance(ctrl, QCheckBox) or isinstance(ctrl, QRadioButton):
+                    ctrl.setChecked(True)
+                else:
+                    self._handle_click(idx, ctrl)
