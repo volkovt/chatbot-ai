@@ -128,3 +128,56 @@ QHeaderView::section:hover {
     color: @text;
     font-weight: bold;
 }
+
+#FuturisticWindow #WindowContainer {
+    background: transparent;
+    border-radius: 20px;
+}
+
+#CentralPane {
+    background: #F5F5F5;
+    border-radius: 20px;
+}
+
+#TitleBar {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 rgba(255, 105, 0, 170),
+        stop:1 rgba(255, 140, 66, 170)
+    );
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border: 1px solid rgba(0, 30, 98, 0.28);
+}
+
+#TitleBar * { background: transparent; }
+
+#WindowTitle {
+    color: #001E62;
+    font-weight: 600;
+    font-size: 16px;
+    padding-left: 8px;
+}
+
+*[isTitleButton="true"] {
+    background: transparent;
+    color: #ffd7bf;
+    border: 1px solid rgba(255,105,0,0.35);
+    border-radius: 8px;
+    opacity: 0.88;
+}
+*[isTitleButton="true"]:hover {
+    background: rgba(255,105,0,0.12);
+    box-shadow: 0 0 12px rgba(255,105,0,0.28);
+}
+#BtnClose:hover {
+    background: rgba(255, 70, 95, 0.22);
+    border-color: rgba(255, 70, 95, 0.45);
+}
+#BtnMax:hover {
+    background: rgba(255, 135, 40, 0.18);
+    border-color: rgba(255, 135, 40, 0.45);
+}
+#BtnMin:hover {
+    background: rgba(255, 195, 120, 0.18);
+    border-color: rgba(255, 195, 120, 0.45);
+}

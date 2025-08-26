@@ -18,11 +18,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.log_viewer = None
         try:
-            self.setWindowTitle("Chatbot AI")
-            self.setStyleSheet(get_style_sheet())
-            self.resize(800, 600)
-
-
+            # self.setWindowTitle("Chatbot AI")
+            # self.setStyleSheet(get_style_sheet())
+            # self.resize(800, 600)
             self.tabs = QTabWidget()
             self.tabs.setTabsClosable(True)
             self.tabs.tabCloseRequested.connect(self.close_tab)
