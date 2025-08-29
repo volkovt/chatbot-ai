@@ -7,11 +7,13 @@ from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QHBoxLayout,
     QListWidget, QListWidgetItem, QToolButton,
-    QAbstractItemView, QMessageBox, QMenu, QAction
+    QAbstractItemView, QMessageBox, QMenu, QApplication, QMainWindow
 )
 import qtawesome as qta
 
-from presentation.file_content_viewer import FileContentViewer
+from presentation.editor.tabs import EditorTabWidget
+from presentation.editor.theming import ThemeManager
+from presentation.editor.window_frame import RoundedFramelessWindow
 from utils.utilities import COLOR_VARS
 
 logger = logging.getLogger("FilePanel")
@@ -30,13 +32,32 @@ class FilePanel(QWidget):
         self.load_files()
         self.update_toggle_btn()
 
-        self._viewer = FileContentViewer()
+        self.file_window = QMainWindow()
+        self.theme_mgr = ThemeManager(self.file_window)
+        self.theme_mgr.apply_dark()
+        self._viewer = EditorTabWidget(self.file_window)
+        self._viewer.on_change_theme.connect(self._on_theme_changed)
+        self.file_window.setCentralWidget(self._viewer)
+        self.frame = RoundedFramelessWindow(self.file_window, title="Code Editor Futurista", radius=14)
+
         self.file_list.itemDoubleClicked.connect(self._on_item_double_clicked)
 
         self.file_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.file_list.customContextMenuRequested.connect(self.on_file_context_menu)
         self.file_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.file_list.installEventFilter(self)
+
+    def _on_theme_changed(self, theme_name: str):
+        try:
+            top = self.frame
+            if hasattr(self, "theme_mgr"):
+                self.theme_mgr.toggle()
+            if hasattr(top, "set_theme"):
+                top.set_theme(theme_name)
+            if hasattr(self._viewer, "set_theme"):
+                self._viewer.set_theme(theme_name)
+        except Exception as e:
+            logger.warning(f"[FilePanel] _on_theme_changed erro: {e}")
 
     def _create_button(self, icon_name: str, tooltip: str, callback) -> QToolButton:
         """Cria um QToolButton com ícone, tooltip e callback fornecidos."""
@@ -234,8 +255,14 @@ class FilePanel(QWidget):
 
     def _on_item_double_clicked(self, item: QListWidgetItem):
         path = item.toolTip()
-        self._viewer.add_file(path)
-        self._viewer.show()
+        if self.frame.isVisible():
+            self.frame.activateWindow()
+            self.frame.raise_()
+        else:
+            self.frame.show()
+        self._viewer.new_tab(path, os.path.basename(path))
+        # self._viewer.load_file(path)
+        # self._viewer.show()
 
     def eventFilter(self, source, event) -> bool:
         if source is self.file_list and event.type() == QEvent.KeyPress:

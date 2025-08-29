@@ -4,6 +4,8 @@ import sys
 from datetime import date, datetime
 from functools import lru_cache
 
+from presentation.editor.syntax import LEXER_BY_EXT
+
 logger = logging.getLogger("Utilities")
 
 COLOR_VARS = {
@@ -72,3 +74,13 @@ def ensure_date(val):
         except Exception:
             return date.today()
     return date.today()
+
+def guess_alias_from_path(path: str) -> str:
+    try:
+        ext = os.path.splitext(path)[1].lower()
+        alias = LEXER_BY_EXT.get(ext, "text")
+        logger.info(f"[Syntax] path={path} ext={ext} alias={alias}")
+        return alias
+    except Exception as e:
+        logger.error(f"[Syntax] guess_alias_from_path erro: {e}")
+        return "text"

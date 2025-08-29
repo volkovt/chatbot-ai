@@ -3,3 +3,5 @@ pyqt5
 qtawesome
 PyQtWebEngine
 PyQt5-stubs
+Qsci
+syntax
