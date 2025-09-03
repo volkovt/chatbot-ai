@@ -1,5 +1,5 @@
 import sys, logging
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout
+from qtpy.QtWidgets import QApplication, QWidget, QVBoxLayout
 
 from presentation.editor.tabs import EditorTabWidget
 from presentation.editor.theming import ThemeManager
@@ -9,7 +9,7 @@ class Root(QWidget):
     def __init__(self, theme_mgr: ThemeManager):
         super().__init__()
         self.theme_mgr = theme_mgr
-        self.tabs = EditorTabWidget(self)
+        self.tabs = EditorTabWidget(parent=self)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0,0,0,0)
         lay.addWidget(self.tabs)
