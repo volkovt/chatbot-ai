@@ -5,14 +5,14 @@ import time
 from datetime import datetime, timedelta
 from collections import deque
 
-from PyQt5.QtWidgets import (
+from qtpy.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
-    QTableWidgetItem, QSizePolicy, QHeaderView, QLabel, QComboBox,
+    QTableWidgetItem, QHeaderView, QLabel, QComboBox,
     QTextEdit, QSplitter, QLineEdit, QDateTimeEdit, QTabWidget,
     QWidget, QFileDialog, QApplication
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QObject, QTimer
-from PyQt5.QtGui import QBrush, QColor, QCursor
+from qtpy.QtCore import Qt, QTimer, Signal, QObject
+from qtpy.QtGui import QColor, QBrush, QCursor
 import qtawesome as qta
 from utils.utilities import get_style_sheet, COLOR_VARS, logger
 
@@ -31,7 +31,7 @@ class LogEntry:
 
 class QtLogHandler(logging.Handler, QObject):
     """Handler que emite registros de log como sinais Qt."""
-    new_record = pyqtSignal(logging.LogRecord)
+    new_record = Signal(logging.LogRecord)
 
     def __init__(self):
         logging.Handler.__init__(self)

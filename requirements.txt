@@ -1,7 +1,12 @@
 python-json-logger
-pyqt5
+qtpy>=2.4
+PySide6>=6.7
+PySide6-Addons>=6.7
+setuptools
+wheel
+nuitka
+ordered-set
+zstandard
 qtawesome
-PyQtWebEngine
-PyQt5-stubs
 Qsci
 syntax

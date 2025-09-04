@@ -2,12 +2,11 @@ import json
 import logging
 import os
 
-from PyQt5.QtWidgets import (
+from qtpy.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QTextEdit, QMenu, QFileDialog,
-    QLabel, QToolButton, QAction, QMessageBox, QSizePolicy, QPushButton,
-    QSplitter
+    QLabel, QAction, QMessageBox, QSizePolicy, QPushButton
 )
-from PyQt5.QtCore import Qt, QEvent
+from qtpy.QtCore import Qt, QEvent
 import qtawesome as qta
 
 from core.workers.ai_worker import AIWorker

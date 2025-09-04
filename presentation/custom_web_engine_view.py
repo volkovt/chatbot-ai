@@ -1,10 +1,17 @@
-from PyQt5.QtCore import pyqtSignal, Qt, QObject, QThread
-from PyQt5.QtWebChannel import QWebChannel
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtWidgets import QMenu, QAction
+import logging
+
+from qtpy.QtCore import Signal, Qt, QObject, QThread
+from qtpy.QtWebChannel import QWebChannel
+from qtpy.QtWidgets import QMenu, QAction
+
+try:
+    from qtpy.QtWebEngineWidgets import QWebEngineView  # força o empacotamento
+except Exception:
+    logging.getLogger(__name__).warning("QtWebEngine não disponível.")
+    pass
 
 class HTMLLoaderWorker(QObject):
-    finished = pyqtSignal(str)
+    finished = Signal(str)
 
     def __init__(self, html_path):
         super().__init__()
@@ -19,8 +26,8 @@ class HTMLLoaderWorker(QObject):
         self.finished.emit(html_content)
 
 class CustomWebEngineView(QWebEngineView):
-    save_file_signal = pyqtSignal(str)
-    load_finished_signal = pyqtSignal()
+    save_file_signal = Signal(str)
+    load_finished_signal = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
