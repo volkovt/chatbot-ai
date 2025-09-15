@@ -1,14 +1,14 @@
 import logging
 
-from PyQt5.QtCore import QEvent, Qt
-from PyQt5.QtWidgets import (
+from qtpy.QtCore import QEvent, Qt
+from qtpy.QtWidgets import (
     QMainWindow, QTabWidget, QMenu, QInputDialog, QMessageBox, QToolButton
 )
 
 from core.service.session_service import SessionService
 from presentation.chat_tab import ChatTab
 from presentation.log_viewer import LogViewerDialog
-from utils.utilities import get_style_sheet, COLOR_VARS
+from utils.utilities import COLOR_VARS
 import qtawesome as qta
 
 logger = logging.getLogger("MainWindow")
@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
                 for idx, chat_id in enumerate(chats, start=1):
                     saved = self.session_service.get_chat_title(chat_id)
                     title = saved if saved else f"Chat {idx}"
+                    logger.info(f"[MainWindow] restaurando sessão {chat_id} como '{title}'")
                     tab = ChatTab(chat_id, self.session_service)
                     self.tabs.addTab(tab, title)
         except Exception as e:

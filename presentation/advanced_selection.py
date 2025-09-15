@@ -2,13 +2,13 @@ import logging
 from enum import Enum
 from functools import partial
 
-from PyQt5.QtWidgets import (
+from qtpy.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QWidget,
     QLineEdit, QListWidget, QListWidgetItem, QSplitter,
     QTextEdit, QMenu, QSizePolicy, QLabel,
     QCheckBox, QRadioButton, QButtonGroup, QMainWindow, QBoxLayout
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from qtpy.QtCore import Qt, Signal, QObject
 
 from utils.utilities import get_style_sheet
 
@@ -41,8 +41,8 @@ class AdvancedSelectionDialog(QDialog):
         VISUALIZE = 1
         DELETE = 2
 
-    itemSelected = pyqtSignal(int, list)
-    actionSelected = pyqtSignal(int, SelectionAction, object)
+    itemSelected = Signal(int, list)
+    actionSelected = Signal(int, SelectionAction, object)
 
     def __init__(
         self,

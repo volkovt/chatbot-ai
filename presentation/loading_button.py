@@ -1,7 +1,8 @@
 import logging
-from PyQt5.QtCore import Qt, QTimer, QSize
-from PyQt5.QtGui import QPainter, QPen, QConicalGradient, QColor, QIcon
-from PyQt5.QtWidgets import QPushButton, QApplication
+
+from qtpy.QtCore import Qt, QTimer, QSize
+from qtpy.QtGui import QPainter, QPen, QConicalGradient, QColor, QIcon
+from qtpy.QtWidgets import QPushButton
 
 logger = logging.getLogger("LoadingButton")
 

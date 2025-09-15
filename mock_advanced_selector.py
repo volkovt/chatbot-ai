@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QPushButton, QMainWindow
+from qtpy.QtWidgets import QApplication, QPushButton, QMainWindow
 
 from presentation.advanced_selection import AdvancedSelectionDialog
 from utils.utilities import get_style_sheet

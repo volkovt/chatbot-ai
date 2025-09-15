@@ -1,7 +1,7 @@
 import logging
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QPlainTextEdit, QWidget, QVBoxLayout
+from qtpy.QtCore import Qt, QTimer
+from qtpy.QtGui import QFont
+from qtpy.QtWidgets import QPlainTextEdit, QWidget, QVBoxLayout
 
 logger = logging.getLogger("FuturisticEditor")
 

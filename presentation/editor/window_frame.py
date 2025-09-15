@@ -1,7 +1,7 @@
 import logging
-from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QPainter, QColor
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication
+from qtpy.QtCore import Qt, QRectF
+from qtpy.QtGui import QPainter, QColor
+from qtpy.QtWidgets import QWidget, QVBoxLayout
 
 from presentation.editor.titlebar import FuturisticTitleBar
 

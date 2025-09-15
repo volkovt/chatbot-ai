@@ -1,7 +1,7 @@
 import logging
-from PyQt5.QtCore import Qt, QRegExp, QRegularExpression, QEvent, pyqtSignal
-from PyQt5.QtGui import QTextCursor, QTextDocument, QKeySequence
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QCheckBox, QShortcut
+from qtpy.QtCore import Qt, QRegularExpression, QEvent
+from qtpy.QtGui import QTextCursor, QTextDocument, QKeySequence
+from qtpy.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QLabel, QCheckBox, QShortcut
 
 import qtawesome as qta
 

@@ -1,0 +1,14 @@
+.
+./apps.cfg
+./build_launcher.bat
+./MatrixLauncher.c
+./MatrixLauncher.rc
+./resource.h
+./resources
+./resources/chatbot_ai.ico
+./resources/chatbot_ai.png
+./resources/data_ai.ico
+./resources/data_ai.png
+./resources/launcher.ico
+./resources/task_ai.ico
+./resources/task_ai.png

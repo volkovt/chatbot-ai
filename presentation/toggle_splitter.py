@@ -1,6 +1,5 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QSplitter, QSplitterHandle
-
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QSplitter, QSplitterHandle
 
 class ToggleHandle(QSplitterHandle):
     """Splitter handle that toggles the second panel on double-click."""

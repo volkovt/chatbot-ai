@@ -1,11 +1,10 @@
 import logging
-import os
 
 from pygments import lex
 from pygments.lexers import get_lexer_by_name
 from pygments.styles import get_style_by_name
-from PyQt5.QtGui import QColor, QTextCharFormat
-from PyQt5.QtGui import QSyntaxHighlighter
+from qtpy.QtGui import QColor, QTextCharFormat
+from qtpy.QtGui import QSyntaxHighlighter
 
 logger = logging.getLogger("FuturisticEditor")
 

@@ -1,7 +1,7 @@
-import logging, os
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QTextCursor, QColor, QTextFormat
-from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QVBoxLayout, QFileDialog, QMessageBox, QShortcut, QInputDialog, \
+import logging
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QFont, QTextCursor, QColor, QTextFormat
+from qtpy.QtWidgets import QWidget, QPlainTextEdit, QVBoxLayout, QFileDialog, QMessageBox, QShortcut, QInputDialog, \
     QTextEdit
 
 from presentation.editor.find_replace import FindReplaceBar
@@ -54,8 +54,8 @@ class PlainCodeEditor(QPlainTextEdit):
 
     def _install_shortcuts(self):
         try:
-            from PyQt5.QtWidgets import QShortcut
-            from PyQt5.QtGui import QKeySequence
+            from qtpy.QtWidgets import QShortcut
+            from qtpy.QtGui import QKeySequence
             QShortcut(QKeySequence("Ctrl+F"), self, member=self.toggle_find)
             QShortcut(QKeySequence("Ctrl+H"), self, member=self.toggle_find)
             QShortcut(QKeySequence("Ctrl+G"), self, member=self.goto_line)
@@ -78,7 +78,7 @@ class PlainCodeEditor(QPlainTextEdit):
 
     def _prompt_goto_line(self):
         try:
-            from PyQt5.QtWidgets import QInputDialog
+            from qtpy.QtWidgets import QInputDialog
             line, ok = QInputDialog.getInt(self, "Ir para linha", "Número da linha:", 1, 1, 999999, 1)
             if ok:
                 self.goto_line()

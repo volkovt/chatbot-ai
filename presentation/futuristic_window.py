@@ -1,13 +1,21 @@
-import sys, ctypes, logging, math
-from PyQt5.QtCore import Qt, QRect, QPoint, QPropertyAnimation, QEasingCurve, QEvent, pyqtSignal, QRectF, QTimer
-from PyQt5.QtGui import QPainter, QColor, QRegion, QPainterPath
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QGraphicsDropShadowEffect, QLabel, \
+import sys, logging
+from qtpy.QtCore import Qt, QPoint, QPropertyAnimation, QEasingCurve, QEvent, Signal, QRectF
+from qtpy.QtGui import QPainter, QColor, QRegion, QPainterPath
+from qtpy.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QGraphicsDropShadowEffect, QLabel, \
     QHBoxLayout, QSizePolicy, QPushButton
 
 from utils.utilities import get_style_sheet
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("[FuturisticWindow]")
+
+# def _lazy_ctypes():
+#     try:
+#         import ctypes as _ct
+#         return _ct
+#     except Exception as e:
+#         logger.warn(f"[Bootstrap] ctypes indisponível (vou continuar sem sinalizar launcher): {e}")
+#         return None
 
 # ---- Aparência / UX ----
 EDGE = 10        # área sensível para resize (maior = mais fácil)
@@ -39,11 +47,11 @@ def lerp_color(c1: QColor, c2: QColor, t: float) -> QColor:
         return c1
 
 class TitleBar(QWidget):
-    requestClose = pyqtSignal()
-    requestMin = pyqtSignal()
-    requestMaxToggle = pyqtSignal()
-    requestDrag = pyqtSignal(QPoint)
-    requestDoubleClick = pyqtSignal()
+    requestClose = Signal()
+    requestMin = Signal()
+    requestMaxToggle = Signal()
+    requestDrag = Signal(QPoint)
+    requestDoubleClick = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -179,7 +187,6 @@ class FuturisticWindow(QMainWindow):
             self._edge_hover = None
 
             self._apply_shadow()
-            self._try_enable_mica_or_acrylic()
             self._fade_in()
         except Exception as e:
             logger.error(f"[FuturisticWindow] erro ao inicializar: {e}")
@@ -369,7 +376,7 @@ class FuturisticWindow(QMainWindow):
 
     def _perform_resize(self, global_pos: QPoint):
         try:
-            from PyQt5.QtCore import QRect as _QRect
+            from qtpy.QtCore import QRect as _QRect
             geo = _QRect(self._start_geo)
             delta = global_pos - self._start_mouse
 
@@ -403,26 +410,6 @@ class FuturisticWindow(QMainWindow):
             self.setGeometry(geo)
         except Exception as e:
             logger.error(f"[FuturisticWindow] _perform_resize erro: {e}")
-
-    def _try_enable_mica_or_acrylic(self):
-        try:
-            if not getattr(self, "_mica_enabled", False):
-                return
-
-            hwnd = int(self.winId())
-            dwm = ctypes.windll.dwmapi
-            DWMWA_SYSTEMBACKDROP_TYPE = 38
-            DWMWA_MICA_EFFECT = 1029
-            DWM_SBT_MAINWINDOW = 2
-
-            backdrop = ctypes.c_int(DWM_SBT_MAINWINDOW)
-            dwm.DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ctypes.byref(backdrop), ctypes.sizeof(backdrop))
-
-            mica_enabled = ctypes.c_int(1)
-            dwm.DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, ctypes.byref(mica_enabled), ctypes.sizeof(mica_enabled))
-            logger.info("[FuturisticWindow] Mica/Acrylic nativo habilitado (se suportado).")
-        except Exception as e:
-            logger.warn(f"[FuturisticWindow] Mica/Acrylic nativo indisponível, usando fallback: {e}")
 
     def showEvent(self, e):
         try:

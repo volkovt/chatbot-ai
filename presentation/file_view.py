@@ -1,10 +1,9 @@
 import logging
 import os
-import time
 
-from PyQt5.QtCore import Qt, QEvent
-from PyQt5.QtGui import QBrush, QColor
-from PyQt5.QtWidgets import (
+from qtpy.QtCore import Qt, QEvent
+from qtpy.QtGui import QBrush, QColor
+from qtpy.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QHBoxLayout,
     QListWidget, QListWidgetItem, QToolButton,
     QAbstractItemView, QMessageBox, QMenu, QApplication, QMainWindow

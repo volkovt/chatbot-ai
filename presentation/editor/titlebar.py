@@ -1,7 +1,7 @@
 import logging
-from PyQt5.QtCore import Qt, QPropertyAnimation, pyqtProperty, QRectF
-from PyQt5.QtGui import QPainter, QLinearGradient, QColor, QFont
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
+from qtpy.QtCore import Qt, QPropertyAnimation, QRectF, Property
+from qtpy.QtGui import QPainter, QLinearGradient, QColor, QFont
+from qtpy.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 
 import qtawesome as qta
 
@@ -111,4 +111,4 @@ class FuturisticTitleBar(QWidget):
         except Exception as e:
             logger.warning(f"[FuturisticTitleBar] set_theme erro: {e}")
 
-    glowPos = pyqtProperty(float, fget=getGlowPos, fset=setGlowPos)
+    glowPos = Property(float, fget=getGlowPos, fset=setGlowPos)

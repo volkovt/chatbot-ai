@@ -1,11 +1,11 @@
 import time
 
-from PyQt5.QtCore import QThread, pyqtSignal
-
+from qtpy.QtCore import QThread
+from qtpy.QtCore import Signal
 
 class AIWorker(QThread):
-    finished = pyqtSignal(str)
-    error = pyqtSignal(Exception)
+    finished = Signal(str)
+    error = Signal(Exception)
 
     def __init__(self, prompt, context_files):
         super().__init__()

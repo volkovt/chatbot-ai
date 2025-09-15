@@ -1,9 +1,10 @@
 import logging, os
 import shutil
 
-from PyQt5.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QToolBar, QAction, QFileDialog, QMessageBox, QLabel, \
+from qtpy.QtCore import Signal
+from qtpy.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QToolBar, QAction, QFileDialog, QMessageBox, QLabel, \
     QSplitter, QMenu
-from PyQt5.QtCore import Qt, pyqtSignal
+from qtpy.QtCore import Qt
 import qtawesome as qta
 
 from presentation.editor.editor_core import CodeEditor
@@ -13,7 +14,7 @@ from presentation.editor.syntax import detect_language
 logger = logging.getLogger("EditorTabWidget")
 
 class EditorTabWidget(QWidget):
-    on_change_theme = pyqtSignal(str)
+    on_change_theme = Signal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.toolbar = QToolBar()

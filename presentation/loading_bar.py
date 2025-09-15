@@ -1,20 +1,8 @@
 import logging
 
-from PyQt5.QtCore import (
-    Qt,
-    pyqtProperty,
-    QTimer,
-)
-from PyQt5.QtGui import (
-    QPainter,
-    QPen,
-    QLinearGradient,
-    QColor,
-)
-from PyQt5.QtWidgets import (
-    QWidget,
-    QSizePolicy,
-)
+from qtpy.QtCore import Qt, QTimer
+from qtpy.QtGui import QPainter, QPen, QLinearGradient, QColor
+from qtpy.QtWidgets import QWidget, QSizePolicy
 
 logger = logging.getLogger("FuturisticLoadingBar")
 

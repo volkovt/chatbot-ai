@@ -1,5 +1,5 @@
 import logging
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from qtpy.QtWidgets import QMainWindow
 
 logger = logging.getLogger("ThemeManager")
 

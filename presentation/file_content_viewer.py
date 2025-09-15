@@ -1,17 +1,16 @@
 import logging
 import os
 
-from PyQt5.QtWidgets import (
+from qtpy.QtWidgets import (
     QDialog, QTabWidget, QVBoxLayout, QWidget, QPlainTextEdit,
     QMenu, QShortcut
 )
-from PyQt5.QtGui import QPainter, QColor, QKeySequence
-from PyQt5.QtCore import Qt, QRect, QSize
+from qtpy.QtGui import QPainter, QColor, QKeySequence
+from qtpy.QtCore import Qt, QRect, QSize
 
 from utils.utilities import get_style_sheet, COLOR_VARS
 
 logger = logging.getLogger("FileContentViewer")
-
 
 class LineNumberArea(QWidget):
     """Widget para mostrar números de linha ao lado de um CodeEditor."""
