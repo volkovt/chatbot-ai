@@ -1,9 +1,10 @@
 #include "resource.h"
 
 // PNG como recurso (tipo explícito "PNG" — GDI+ acha fácil)
-RES_CHATBOT_PNG PNG "resources\\chatbot_ai.png"
-RES_OCR_PNG     PNG "resources\\data_ai.png"
-RES_TASKS_PNG   PNG "resources\\task_ai.png"
+RES_CHATBOT_PNG     PNG "resources\\chatbot_ai.png"
+RES_DATAAI_PNG      PNG "resources\\data_ai.png"
+RES_TASKS_PNG       PNG "resources\\task_ai.png"
+RES_SERVICEAI_PNG   PNG "resources\\service_ai.png"
 
 // opcional: ícone do próprio launcher
 APPICON ICON "resources\\launcher.ico"

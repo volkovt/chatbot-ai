@@ -1,4 +1,4 @@
-// MatrixLauncher.c — Matrix-style App Launcher (ícones centrados, sem moldura)
+// MatrixLauncher.c — Matrix-style App Launcher (radial icons, neon glow, tooltips, keyboard/gamepad, idle pulse)
 // Build (MSVC, duas etapas):
 //   rc /nologo /fo MatrixLauncher.res MatrixLauncher.rc
 //   cl /nologo /c /TP /W4 /EHsc /O2 /GL /DUNICODE /D_UNICODE MatrixLauncher.c
@@ -29,6 +29,7 @@
 #endif
 #define NOMINMAX
 #define _CRT_SECURE_NO_WARNINGS
+#define _USE_MATH_DEFINES
 
 #include <windows.h>
 #include <windowsx.h>
@@ -38,9 +39,19 @@
 #include <commctrl.h>
 #include <gdiplus.h>
 #include <dwmapi.h>
+#include <xinput.h>    // Gamepad (dinâmico via LoadLibrary)
 #include <stdio.h>
 #include <wchar.h>
 #include <stdint.h>
+#include <cmath>
+#include <algorithm>
+#include <memory>
+#include <math.h>
+
+using std::min;
+using std::max;
+using std::unique_ptr;
+
 
 #pragma comment(lib, "Gdiplus.lib")
 #pragma comment(lib, "Shlwapi.lib")
@@ -85,6 +96,8 @@
 // Ícones puros, sem card:
 static int g_iconBoxPx = 0;   // definido em runtime via dpi
 static int g_padPx     = 0;   // espaçamento entre ícones
+static float g_idlePulseHz = 0.20f; // 0.20 Hz (respiração leve)
+static float g_radius_scale = 0.4f;
 
 // ---------------------- Logging ----------------------
 static FILE* g_log = NULL;
@@ -118,6 +131,8 @@ typedef struct AppItem {
     wchar_t iconRef[PATH_MAX_LEN]; // "#101", "RES:101", "101" OU caminho para PNG
     UINT    iconResId;             // >0 se usar recurso
     Gdiplus::Image* icon;          // carregado sob demanda
+    Gdiplus::Color  neonColor;     // cor média->neon
+    BOOL    neonReady;
     RECT  rect;                    // área do ícone (quadrado)
 } AppItem;
 
@@ -135,10 +150,19 @@ static int g_selectedIndex = -1;
 // hover animation (0..1)
 static float g_hoverT[MAX_APPS] = {0};
 
+// tempo
+static ULONGLONG g_t0 = 0;
+
 // Backbuffer
 static HBITMAP g_memBmp = NULL;
 static HDC g_memDC = NULL;
 static int g_memW = 0, g_memH = 0;
+
+// Gamepad (XInput dinâmico)
+typedef DWORD (WINAPI *PFN_XInputGetState)(DWORD, XINPUT_STATE*);
+static HMODULE g_hXInput = NULL;
+static PFN_XInputGetState pXInputGetState = NULL;
+static DWORD g_padLastButtons = 0;
 
 // Rain
 typedef struct RainDrop { float y; float speed; int length; } RainDrop;
@@ -270,59 +294,148 @@ static Gdiplus::Image* load_image_from_res(UINT resid) {
     return img;
 }
 
+static void ensure_icons_loaded(void);
+
+// --- Cor média -> neon -------------------------------------------------------
+static Gdiplus::Color make_neon_from_avg(BYTE r, BYTE g, BYTE b) {
+    // Eleva saturação e brilho; fixa o canal dominante como base neon.
+    BYTE m = (BYTE)max(r, max(g, b));
+    if (m < 60) { r = 60; g = 180; b = 90; m = 180; } // fallback esverdeado
+    float scale = 255.0f / (m ? m : 1);
+    float rr = r * scale, gg = g * scale, bb = b * scale;
+    // puxa levemente para tons "neon" (aumenta contraste)
+    rr = rr * 0.85f; gg = gg * 0.95f; bb = bb * 0.85f;
+    rr = (rr > 255 ? 255 : rr);
+    gg = (gg > 255 ? 255 : gg);
+    bb = (bb > 255 ? 255 : bb);
+    return Gdiplus::Color(255, (BYTE)rr, (BYTE)gg, (BYTE)bb);
+}
+
+static void compute_icon_neon_color(AppItem* it) {
+    using namespace Gdiplus;
+    if (!it || !it->icon || it->neonReady) return;
+
+    UINT w = it->icon->GetWidth(), h = it->icon->GetHeight();
+    if (w == 0 || h == 0) { it->neonColor = Color(255, 80, 220, 120); it->neonReady = TRUE; return; }
+
+    // Garante Bitmap ARGB
+    Bitmap* srcBmp = dynamic_cast<Bitmap*>(it->icon);
+    std::unique_ptr<Bitmap> tmp;
+    if (!srcBmp) {
+        tmp.reset(new Bitmap(w, h, PixelFormat32bppPARGB));
+        Graphics g(tmp.get());
+        g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        g.DrawImage(it->icon, 0, 0, w, h);
+        srcBmp = tmp.get();
+    }
+
+    Rect r(0, 0, (INT)w, (INT)h);
+    BitmapData data;
+    if (srcBmp->LockBits(&r, ImageLockModeRead, PixelFormat32bppPARGB, &data) != Ok) {
+        it->neonColor = Color(255, 80, 220, 120); it->neonReady = TRUE; return;
+    }
+
+    UINT stride = (UINT)data.Stride;
+    BYTE* base = (BYTE*)data.Scan0;
+    UINT stepX = max<UINT>(1, w / 64), stepY = max<UINT>(1, h / 64);
+    unsigned long long sumR = 0, sumG = 0, sumB = 0, count = 0;
+
+    for (UINT y = 0; y < h; y += stepY) {
+        BYTE* row = base + y * stride;
+        for (UINT x = 0; x < w; x += stepX) {
+            BYTE* p = row + x * 4; // BGRA
+            BYTE a = p[3]; if (a < 24) continue;
+            BYTE bb = p[0], gg = p[1], rr = p[2];
+            sumR += rr; sumG += gg; sumB += bb; count++;
+        }
+    }
+    srcBmp->UnlockBits(&data);
+
+    BYTE avgR = count ? (BYTE)(sumR / count) : 80;
+    BYTE avgG = count ? (BYTE)(sumG / count) : 220;
+    BYTE avgB = count ? (BYTE)(sumB / count) : 120;
+    it->neonColor = make_neon_from_avg(avgR, avgG, avgB);
+    it->neonReady = TRUE;
+}
+
 static void ensure_icons_loaded(void) {
     for (int i = 0; i < g_appCount; ++i) {
-        if (g_apps[i].icon) continue;
-        if (g_apps[i].iconResId > 0) {
-            if (Gdiplus::Image* img = load_image_from_res(g_apps[i].iconResId)) {
-                g_apps[i].icon = img; logger_info(L"Icon loaded from resource id=%u", g_apps[i].iconResId); continue;
-            } else {
-                logger_error(L"Failed to load icon from resource id=%u", g_apps[i].iconResId);
+        if (!g_apps[i].icon) {
+            if (g_apps[i].iconResId > 0) {
+                if (Gdiplus::Image* img = load_image_from_res(g_apps[i].iconResId)) {
+                    g_apps[i].icon = img; logger_info(L"Icon loaded from resource id=%u", g_apps[i].iconResId);
+                } else {
+                    logger_error(L"Failed to load icon from resource id=%u", g_apps[i].iconResId);
+                }
+            } else if (g_apps[i].iconRef[0]) {
+                if (Gdiplus::Image* img = Gdiplus::Image::FromFile(g_apps[i].iconRef, FALSE)) {
+                    if (img->GetLastStatus() == Gdiplus::Ok) { g_apps[i].icon = img; logger_info(L"Icon loaded from file: %ls", g_apps[i].iconRef); }
+                    else { delete img; logger_error(L"Failed status loading icon file: %ls", g_apps[i].iconRef); }
+                } else {
+                    logger_error(L"Failed to load icon file: %ls", g_apps[i].iconRef);
+                }
             }
         }
-        if (g_apps[i].iconRef[0]) {
-            if (Gdiplus::Image* img = Gdiplus::Image::FromFile(g_apps[i].iconRef, FALSE)) {
-                if (img->GetLastStatus() == Gdiplus::Ok) { g_apps[i].icon = img; logger_info(L"Icon loaded from file: %ls", g_apps[i].iconRef); continue; }
-                delete img;
-            }
-            logger_error(L"Failed to load icon file: %ls", g_apps[i].iconRef);
-        }
+        if (g_apps[i].icon && !g_apps[i].neonReady) compute_icon_neon_color(&g_apps[i]);
     }
 }
 
-// ---------------------- Layout / Render ----------------------
-static void compute_layout_centered(RECT rcClient) {
+// ---------------------- Layout (RADIAL) ----------------------
+static void compute_layout_radial(RECT rcClient) {
     const int iconBox = g_iconBoxPx;
     const int pad     = g_padPx;
 
     int w = rcClient.right - rcClient.left;
     int h = rcClient.bottom - rcClient.top;
+    float cx = rcClient.left + w * 0.5f;
+    float cy = rcClient.top  + h * 0.5f;
 
-    int cols = w / (iconBox + pad); if (cols < 1) cols = 1; if (cols > MAX_COLS) cols = MAX_COLS;
-    int rows = (g_appCount + cols - 1) / cols; if (rows < 1) rows = 1;
+    if (g_appCount <= 0) return;
 
-    // Altura total usada pela grade
-    int totalH = rows * iconBox + (rows - 1) * pad;
-    int y = (h - totalH) / 2; // centraliza vertical
+    float maxR = (float)(min(w, h) * 0.5f) - (iconBox * 0.7f);
+    if (maxR < iconBox) maxR = (float)iconBox;
 
-    int idx = 0;
-    for (int r = 0; r < rows && idx < g_appCount; ++r) {
-        int remaining = g_appCount - idx;
-        int rowItems = remaining < cols ? remaining : cols;
-        int rowW = rowItems * iconBox + (rowItems - 1) * pad;
-        int x = (w - rowW) / 2; // centraliza horizontal a linha
-
-        for (int c = 0; c < rowItems; ++c, ++idx) {
-            g_apps[idx].rect.left   = x;
-            g_apps[idx].rect.top    = y;
-            g_apps[idx].rect.right  = x + iconBox;
-            g_apps[idx].rect.bottom = y + iconBox;
-            x += iconBox + pad;
+    // Verifica se 1 anel comporta (circunferência/ícones)
+    float neededR = (g_appCount * (iconBox + pad)) / (2.0f * (float)M_PI);
+    if (neededR <= maxR || g_appCount <= 10) {
+        // anel único
+        // aplica escala configurável para aproximar/afastar ícones
+        float r = max(neededR, maxR * g_radius_scale);
+        float a0 = - (float)M_PI_2; // começa no topo
+        for (int i = 0; i < g_appCount; ++i) {
+            float t = a0 + (2.0f * (float)M_PI) * (float)i / (float)g_appCount;
+            int x = (int)(cx + r * cosf(t)) - iconBox / 2;
+            int y = (int)(cy + r * sinf(t)) - iconBox / 2;
+            g_apps[i].rect = { x, y, x + iconBox, y + iconBox };
         }
-        y += iconBox + pad;
+    } else {
+        // dois anéis (metade fora/metade dentro)
+        int outerCount = (g_appCount + 1) / 2;
+        int innerCount = g_appCount - outerCount;
+
+        // reduz tamanho dos anéis aplicando a mesma escala
+        float rOuter = maxR * g_radius_scale;
+        float rInner = rOuter - (iconBox + pad + dpi_scale(42)) * g_radius_scale;
+        if (rInner < iconBox) rInner = (float)iconBox;
+
+        float a0 = -(float)M_PI_2;
+        for (int i = 0; i < outerCount; ++i) {
+            float t = a0 + (2.0f * (float)M_PI) * (float)i / (float)outerCount;
+            int x = (int)(cx + rOuter * cosf(t)) - iconBox / 2;
+            int y = (int)(cy + rOuter * sinf(t)) - iconBox / 2;
+            g_apps[i].rect = { x, y, x + iconBox, y + iconBox };
+        }
+        float a1 = a0 + (float)M_PI / (float)outerCount; // desfasa para intercalar
+        for (int j = 0; j < innerCount; ++j) {
+            float t = a1 + (2.0f * (float)M_PI) * (float)j / (float)innerCount;
+            int x = (int)(cx + rInner * cosf(t)) - iconBox / 2;
+            int y = (int)(cy + rInner * sinf(t)) - iconBox / 2;
+            g_apps[outerCount + j].rect = { x, y, x + iconBox, y + iconBox };
+        }
     }
 }
 
+// ---------------------- Rain / Fundo ----------------------
 static void init_rain(RECT rcClient) {
     int w = rcClient.right - rcClient.left, h = rcClient.bottom - rcClient.top;
     HDC hdc = GetDC(g_hWnd); HFONT old = (HFONT)SelectObject(hdc, g_hexFont);
@@ -373,13 +486,52 @@ static void draw_rain(HDC dc, int w, int h) {
     SelectObject(dc, old);
 }
 
-static void draw_icon(Gdiplus::Graphics* gg, int i, RECT rc, BOOL hovered) {
+// ---------------------- Glow / Rings / Icons ----------------------
+static void draw_neon_glow(Gdiplus::Graphics* gg, const RECT& rc, const Gdiplus::Color& neon, float strength, float scale) {
+    using namespace Gdiplus;
+    int w = rc.right - rc.left, h = rc.bottom - rc.top;
+    int cx = rc.left + w/2, cy = rc.top + h/2;
+
+    float baseR = (float)(max(w, h)) * 0.60f * scale;   // raio do glow
+    GraphicsPath path;
+    path.AddEllipse((REAL)(cx - baseR), (REAL)(cy - baseR), (REAL)(baseR*2), (REAL)(baseR*2));
+
+    BYTE aCenter = (BYTE)clampi((int)(220 * strength), 0, 255);
+    Color cCenter(aCenter, neon.GetR(), neon.GetG(), neon.GetB());
+    Color cEdge(0, neon.GetR(), neon.GetG(), neon.GetB());
+
+    PathGradientBrush pgb(&path);
+    pgb.SetCenterPoint(Point(cx, cy));
+    pgb.SetCenterColor(cCenter);
+    INT cnt = 1;
+    pgb.SetSurroundColors(&cEdge, &cnt);
+    gg->FillPath(&pgb, &path);
+}
+
+static void draw_double_ring(Gdiplus::Graphics* gg, const RECT& rc, const Gdiplus::Color& neon, float thickness, float expandOuter) {
+    using namespace Gdiplus;
+    int w = rc.right - rc.left, h = rc.bottom - rc.top;
+    float cx = rc.left + w/2.0f, cy = rc.top + h/2.0f;
+    float radOuter = max(w, h) * (0.52f + expandOuter);
+    float radInner = max(w, h) * (0.40f + expandOuter*0.6f);
+
+    Pen pen1(Color((BYTE)220, neon.GetR(), neon.GetG(), neon.GetB()), thickness);
+    Pen pen2(Color((BYTE)160, neon.GetR(), neon.GetG(), neon.GetB()), thickness * 0.8f);
+    pen1.SetAlignment(PenAlignmentCenter); pen2.SetAlignment(PenAlignmentCenter);
+
+    gg->DrawEllipse(&pen1, (REAL)(cx - radOuter), (REAL)(cy - radOuter), (REAL)(radOuter*2), (REAL)(radOuter*2));
+    gg->DrawEllipse(&pen2, (REAL)(cx - radInner), (REAL)(cy - radInner), (REAL)(radInner*2), (REAL)(radInner*2));
+}
+
+static void draw_icon(Gdiplus::Graphics* gg, int i, RECT rc, BOOL hovered, float globalPulse) {
     using namespace Gdiplus;
     gg->SetSmoothingMode(SmoothingModeHighQuality);
     gg->SetInterpolationMode(InterpolationModeHighQualityBicubic);
+    gg->SetCompositingMode(CompositingModeSourceOver);
 
+    // Escala: respiração leve + hover
     float t = g_hoverT[i];                     // 0..1
-    float scale = 1.0f + 0.10f * t;            // até +10% no hover
+    float scale = (1.0f + 0.03f * globalPulse) * (1.0f + 0.12f * t);
     int iconBox = rc.right - rc.left;
 
     int drawW = (int)(iconBox * scale);
@@ -387,12 +539,29 @@ static void draw_icon(Gdiplus::Graphics* gg, int i, RECT rc, BOOL hovered) {
     int drawX = rc.left + (iconBox - drawW)/2;
     int drawY = rc.top  + (iconBox - drawH)/2;
 
+    // Glow: ocioso fraco, hover forte; cor média->neon
+    Gdiplus::Color neon = g_apps[i].neonReady ? g_apps[i].neonColor : Color(255, 80, 220, 120);
+    float glowStrength = hovered ? 1.0f : 0.30f + 0.20f * (0.5f * (globalPulse + 1.0f)); // ~0.3..0.5 idle
+    draw_neon_glow(gg, rc, neon, glowStrength, hovered ? 1.25f : 1.0f);
+
+    // Ícone
     if (g_apps[i].icon) {
         gg->DrawImage(g_apps[i].icon, drawX, drawY, drawW, drawH);
     } else {
-        // placeholder simples (sem retângulo/contorno)
         SolidBrush ph(Color(255, 40, 60, 60));
-        gg->FillRectangle(&ph, drawX, drawY, drawW, drawH);
+        gg->FillEllipse(&ph, (REAL)drawX, (REAL)drawY, (REAL)drawW, (REAL)drawH);
+    }
+
+    // Seleção persistente (anel duplo)
+    if (i == g_selectedIndex) {
+        float thick = (float)dpi_scale(3);
+        draw_double_ring(gg, rc, neon, thick, 0.06f + 0.01f * globalPulse);
+    }
+
+    // Hover extra: reforça o anel
+    if (hovered) {
+        float thick = (float)dpi_scale(2);
+        draw_double_ring(gg, rc, neon, thick, 0.02f);
     }
 }
 
@@ -407,9 +576,14 @@ static void paint(HWND hWnd) {
     draw_rain(g_memDC, w, h);
 
     ensure_icons_loaded();
+
+    // pulso global (seno em baixa frequência)
+    float tSec = (float)((GetTickCount64() - g_t0) * 0.001);
+    float pulse = sinf(2.0f * (float)M_PI * g_idlePulseHz * tSec);
+
     for (int i = 0; i < g_appCount; ++i) {
         BOOL hov = (i == g_hoverIndex);
-        draw_icon(&gg, i, g_apps[i].rect, hov);
+        draw_icon(&gg, i, g_apps[i].rect, hov, pulse);
     }
 
     BitBlt(hdc, 0, 0, w, h, g_memDC, 0, 0, SRCCOPY);
@@ -425,7 +599,6 @@ static void launch_app(int idx) {
     wchar_t wdir[PATH_MAX_LEN]; lstrcpynW(wdir, it->exe, PATH_MAX_LEN); PathRemoveFileSpecW(wdir); sei.lpDirectory = wdir; sei.nShow = SW_SHOWNORMAL;
     logger_info(L"Launching: %ls %ls", it->exe, it->args);
     if (!ShellExecuteExW(&sei)) { DWORD err = GetLastError(); logger_error(L"ShellExecuteEx failed (%lu) for %ls", err, it->exe); MessageBoxW(g_hWnd, L"Falha ao iniciar a aplicação. Verifique o caminho no apps.cfg.", L"Erro", MB_ICONERROR); return; }
-    // sem minimizar automaticamente — deixa o usuário decidir
 }
 
 static int hit_test_icon(POINT pt) { for (int i = 0; i < g_appCount; ++i) if (PtInRect(&g_apps[i].rect, pt)) return i; return -1; }
@@ -444,6 +617,44 @@ static void update_hover_anim() {
     }
 }
 
+// ---------------------- Gamepad ----------------------
+static void xinput_load(void) {
+    if (pXInputGetState) return;
+    const wchar_t* dlls[] = { L"xinput1_4.dll", L"xinput9_1_0.dll", L"xinput1_3.dll" };
+    for (int i = 0; i < 3 && !pXInputGetState; ++i) {
+        g_hXInput = LoadLibraryW(dlls[i]);
+        if (g_hXInput) {
+            pXInputGetState = (PFN_XInputGetState)GetProcAddress(g_hXInput, "XInputGetState");
+            if (!pXInputGetState) { FreeLibrary(g_hXInput); g_hXInput = NULL; }
+        }
+    }
+}
+
+static void gamepad_poll_and_nav(void) {
+    if (!pXInputGetState) return;
+    XINPUT_STATE st; ZeroMemory(&st, sizeof(st));
+    if (pXInputGetState(0, &st) != ERROR_SUCCESS) return;
+
+    WORD btn = st.Gamepad.wButtons;
+    WORD changedDown = (WORD)((btn ^ g_padLastButtons) & btn);
+    g_padLastButtons = btn;
+
+    auto doNav = [&](WPARAM vk) {
+        PostMessageW(g_hWnd, WM_KEYDOWN, vk, 0);
+    };
+
+    if (changedDown & XINPUT_GAMEPAD_DPAD_LEFT)  doNav(VK_LEFT);
+    if (changedDown & XINPUT_GAMEPAD_DPAD_RIGHT) doNav(VK_RIGHT);
+    if (changedDown & XINPUT_GAMEPAD_DPAD_UP)    doNav(VK_UP);
+    if (changedDown & XINPUT_GAMEPAD_DPAD_DOWN)  doNav(VK_DOWN);
+
+    if (changedDown & XINPUT_GAMEPAD_A) {
+        if (g_hoverIndex >= 0) launch_app(g_hoverIndex);
+        else if (g_selectedIndex >= 0) launch_app(g_selectedIndex);
+    }
+}
+
+// ---------------------- Window helpers ----------------------
 static void snap_to_cursor_monitor(HWND hWnd, BOOL useWorkArea) {
     POINT pt; GetCursorPos(&pt);
     HMONITOR hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
@@ -457,31 +668,43 @@ static void snap_to_cursor_monitor(HWND hWnd, BOOL useWorkArea) {
                  SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+// ---------------------- WndProc ----------------------
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_CREATE: {
         HDC hdc = GetDC(hWnd); g_dpi = GetDeviceCaps(hdc, LOGPIXELSX); ReleaseDC(hWnd, hdc);
         create_fonts(); enable_modern_frame(hWnd);
+        g_t0 = GetTickCount64();
+        xinput_load();
+
         SetTimer(hWnd, TIMER_ANIM_ID,  TIMER_ANIM_MS,  NULL);
         SetTimer(hWnd, TIMER_HOVER_ID, TIMER_HOVER_MS, NULL);
         return 0; }
     case WM_SIZE:  {
         RECT rc; GetClientRect(hWnd, &rc);
-        compute_layout_centered(rc); init_rain(rc);
+        compute_layout_radial(rc);
+        init_rain(rc);
         InvalidateRect(hWnd, NULL, FALSE);
         return 0; }
     case WM_TIMER: {
-        if (wParam == TIMER_ANIM_ID) { update_hover_anim(); InvalidateRect(hWnd, NULL, FALSE); }
-        else if (wParam == TIMER_HOVER_ID) {
+        if (wParam == TIMER_ANIM_ID) {
+            update_hover_anim();
+            gamepad_poll_and_nav();
+            InvalidateRect(hWnd, NULL, FALSE);
+        } else if (wParam == TIMER_HOVER_ID) {
             POINT pt; GetCursorPos(&pt); ScreenToClient(hWnd, &pt);
             int idx = hit_test_icon(pt);
-            if (idx != g_hoverIndex) { g_hoverIndex = idx; }
+            if (idx != g_hoverIndex) {
+                g_hoverIndex = idx;
+            }
         }
         return 0; }
     case WM_MOUSEMOVE: {
         POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
         int idx = hit_test_icon(pt);
-        if (idx != g_hoverIndex) { g_hoverIndex = idx; }
+        if (idx != g_hoverIndex) {
+            g_hoverIndex = idx;
+        }
         return 0; }
     case WM_LBUTTONUP: {
         POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
@@ -490,18 +713,38 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0; }
     case WM_KEYDOWN: {
         if (wParam == VK_ESCAPE) PostQuitMessage(0);
-        else if ((wParam == VK_RETURN || wParam == VK_SPACE) && g_hoverIndex >= 0) {
-            launch_app(g_hoverIndex);
+        else if ((wParam == VK_RETURN || wParam == VK_SPACE)) {
+            int idx = (g_hoverIndex >= 0) ? g_hoverIndex : g_selectedIndex;
+            if (idx >= 0) launch_app(idx);
         } else if (wParam == VK_LEFT || wParam == VK_RIGHT || wParam == VK_UP || wParam == VK_DOWN) {
-            int next = (g_selectedIndex >= 0 ? g_selectedIndex : 0);
-            int cellW = g_iconBoxPx, pad = g_padPx;
-            RECT rc; GetClientRect(hWnd, &rc); int width = rc.right - rc.left;
-            int cols = width / (cellW + pad); if (cols < 1) cols = 1;
-            if (wParam == VK_LEFT)  next = clampi(next - 1, 0, g_appCount - 1);
-            if (wParam == VK_RIGHT) next = clampi(next + 1, 0, g_appCount - 1);
-            if (wParam == VK_UP)    next = clampi(next - cols, 0, g_appCount - 1);
-            if (wParam == VK_DOWN)  next = clampi(next + cols, 0, g_appCount - 1);
-            if (next != g_selectedIndex) { g_selectedIndex = next; g_hoverIndex = next; InvalidateRect(hWnd, NULL, FALSE); }
+            // Navegação radial: aproximação — move para o ícone mais próximo na direção.
+            if (g_appCount <= 0) return 0;
+            int current = (g_selectedIndex >= 0) ? g_selectedIndex : (g_hoverIndex >= 0 ? g_hoverIndex : 0);
+            RECT rcCur = g_apps[current].rect;
+            POINT ccur = { (rcCur.left + rcCur.right)/2, (rcCur.top + rcCur.bottom)/2 };
+
+            int best = current; int bestScore = INT_MAX;
+            for (int i = 0; i < g_appCount; ++i) if (i != current) {
+                RECT r = g_apps[i].rect;
+                POINT p = { (r.left + r.right)/2, (r.top + r.bottom)/2 };
+                int dx = p.x - ccur.x, dy = p.y - ccur.y;
+                bool dirOK = false;
+                if (wParam == VK_LEFT)  dirOK = dx < 0 && abs(dy) < abs(dx) * 2;
+                if (wParam == VK_RIGHT) dirOK = dx > 0 && abs(dy) < abs(dx) * 2;
+                if (wParam == VK_UP)    dirOK = dy < 0 && abs(dx) < abs(dy) * 2;
+                if (wParam == VK_DOWN)  dirOK = dy > 0 && abs(dx) < abs(dy) * 2;
+                int score = dx*dx + dy*dy;
+                if (dirOK && score < bestScore) { bestScore = score; best = i; }
+            }
+            if (best == current) { // fallback: próximo índice circular
+                if (wParam == VK_LEFT || wParam == VK_UP)  best = (current - 1 + g_appCount) % g_appCount;
+                if (wParam == VK_RIGHT || wParam == VK_DOWN) best = (current + 1) % g_appCount;
+            }
+            if (best != current) {
+                g_selectedIndex = best;
+                g_hoverIndex = best;
+                InvalidateRect(hWnd, NULL, FALSE);
+            }
         }
         return 0; }
     case WM_PAINT:   { paint(hWnd); return 0; }
@@ -510,14 +753,20 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (g_hexFont) { DeleteObject(g_hexFont); g_hexFont = NULL; }
         if (g_memBmp) { DeleteObject(g_memBmp); g_memBmp = NULL; }
         if (g_memDC) { DeleteDC(g_memDC); g_memDC = NULL; }
+        if (g_hXInput) { FreeLibrary(g_hXInput); g_hXInput = NULL; pXInputGetState = NULL; }
         unload_icons(); PostQuitMessage(0); return 0; }
     }
     return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
+// ---------------------- WinMain ----------------------
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmd, int nShow) {
-    (void)hPrev; (void)lpCmd;
+    (void)hPrev; (void)lpCmd; (void)nShow;
     g_hInst = hInst;
+
+    INITCOMMONCONTROLSEX icc = { sizeof(icc), ICC_WIN95_CLASSES | ICC_STANDARD_CLASSES };
+    InitCommonControlsEx(&icc);
+
     Gdiplus::GdiplusStartupInput gi;
     if (Gdiplus::GdiplusStartup(&g_gdiplusToken, &gi, NULL) != Gdiplus::Ok) {
         MessageBoxW(NULL, L"Falha ao iniciar GDI+.", L"Erro", MB_ICONERROR);
@@ -547,6 +796,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmd, int nShow) {
 
     ShowWindow(g_hWnd, SW_SHOWNORMAL);
     UpdateWindow(g_hWnd);
+    SetFocus(g_hWnd);
 
     MSG msg;
     while (GetMessageW(&msg, NULL, 0, 0)) {
